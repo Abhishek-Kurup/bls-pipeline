@@ -1,0 +1,16 @@
+{
+  "account_id": "224486859603",
+  "bucket_name": "aws-s3-bls",
+  "region": "ap-southeast-2",
+  "population": {
+    "url": "https://api.datausa.io/tesseract/data.jsonrecords?cube=acs_yg_total_population_5&drilldowns=Nation,Year&measures=Population",
+    "s3_prefix": "bls/population/"
+  },
+  "bls": {
+    "url": "https://download.bls.gov/pub/time.series/pr/",
+    "header": {"User-Agent": "AWSLambdaDataFetcher/1.0 (ashking220196@gmail.com)"},
+    "s3_prefix": "bls/pr/"
+  }
+}
+
+
