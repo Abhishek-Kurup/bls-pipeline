@@ -13,7 +13,7 @@ from constructs import Construct
 import os
 
 # Load secure config
-with open('../../config.json', 'r') as f:
+with open('../config.json', 'r') as f:
     config = json.load(f)
 
 class CompletePipelineStack(Stack):
