@@ -79,7 +79,7 @@ class CompletePipelineStack(Stack):
         # S3 → SQS trigger (population.json)
         bucket = s3.Bucket.from_bucket_name(self, "Bucket", bucket_name)
         bucket.add_event_notification(
-            "PopulationEvent",
+            s3.EventType.OBJECT_CREATED,
             notifications.SqsDestination(analytics_queue),
             s3.NotificationKeyFilter(suffix="population.json")
         )
