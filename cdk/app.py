@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
 import aws_cdk as cdk
-from part4_stack import CompletePipelineStack
+from pipeline_stack import MyPipelineStack
 
 app = cdk.App()
-CompletePipelineStack(app, "BlsPipelineStack", env=cdk.Environment(region="ap-southeast-2"))
+MyPipelineStack(app, "MyPipelineStack")
 app.synth()
