@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Complete Pipeline Stack with Lambda, Events, and SQS.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the existing S3 bucket for data storage.
+  BlsS3Prefix:
+    Type: String
+    Default: "data/bls/"
+  PopS3Prefix:
+    Type: String
+    Default: "data/population/"
+
+Resources:
+  # IAM Role for Lambdas
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+                Resource:
+                  - !Sub "arn:aws:s3:::${BucketName}"
+                  - !Sub "arn:aws:s3:::${BucketName}/*"
+
+  # Part 1: BLS Sync Lambda
+  BlsDataFetcher:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: bls_sync.handler
+      Runtime: python3.12
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref BucketName # Change to your code deployment bucket
+        S3Key: lambda/bls_sync.zip
+      Timeout: 900 # 15 minutes
+
+  # Part 2: Population Lambda
+  PopulationDataFetcher:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: population.handler
+      Runtime: python3.12
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: lambda/population_sync.zip
+      Timeout: 300 # 5 minutes
+
+  # Daily Schedule Rule (2AM Sydney = 16 UTC)
+  DailyFetchRule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: "cron(0 16 * * ? *)"
+      State: ENABLED
+      Targets:
+        - Id: "BlsTarget"
+          Arn: !GetAtt BlsDataFetcher.Arn
+          Input: !Sub |
+            { "BUCKET_NAME": "${BucketName}", "CONFIG": "bls_config_placeholder" }
+        - Id: "PopTarget"
+          Arn: !GetAtt PopulationDataFetcher.Arn
+          Input: !Sub |
+            { "BUCKET_NAME": "${BucketName}", "CONFIG": "pop_config_placeholder" }
+
+  # Part 3: Analytics pipeline
+  AnalyticsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 300
+
+  AnalyticsProcessor:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: analytics.handler
+      Runtime: python3.12
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: lambda/analytics.zip
+      Timeout: 300
+      Environment:
+        Variables:
+          BLS_BUCKET: !Ref BucketName
+          POP_S3_PREFIX: !Sub "${PopS3Prefix}datausa_population.json"
+          BLS_S3_PREFIX: !Sub "${BlsS3Prefix}pr.data.0.Current"
+
+  # SQS Trigger for Analytics Lambda
+  AnalyticsEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt AnalyticsQueue.Arn
+      FunctionName: !Ref AnalyticsProcessor
+
+  # Permissions for EventBridge to invoke Lambdas
+  BlsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref BlsDataFetcher
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyFetchRule.Arn
+
+  PopInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PopulationDataFetcher
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyFetchRule.Arn
+
+template-file-path: template.yaml
+parameters:
+  BucketName: "aws-s3-bls"
+  BlsS3Prefix: "data/bls/"
+  PopS3Prefix: "data/population/"
+tags:
+  Project: "DataPipeline"
