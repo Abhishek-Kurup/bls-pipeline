@@ -81,7 +81,7 @@ class CompletePipelineStack(Stack):
         bucket.add_event_notification(
             "PopulationEvent",
             notifications.SqsDestination(analytics_queue),
-            notifications.NotificationKeyFilter(suffix="population.json")
+            s3.NotificationKeyFilter(suffix="population.json")
         )
 
         # SQS → Analytics Lambda
