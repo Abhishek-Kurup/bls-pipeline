@@ -7,7 +7,8 @@ from aws_cdk import (
     aws_events_targets as targets,
     aws_sqs as sqs,
     aws_iam as iam,
-    aws_s3_notifications as notifications
+    aws_s3_notifications as notifications,
+    aws_s3 as s3
 )
 from constructs import Construct
 import os
@@ -76,7 +77,7 @@ class CompletePipelineStack(Stack):
         )
 
         # S3 → SQS trigger (population.json)
-        bucket = notifications.Bucket.from_bucket_name(self, "Bucket", bucket_name)
+        bucket = s3.Bucket.from_bucket_name(self, "Bucket", bucket_name)
         bucket.add_event_notification(
             "PopulationEvent",
             notifications.SqsDestination(analytics_queue),
