@@ -13,7 +13,7 @@ from constructs import Construct
 import os
 
 # Load secure config
-with open('../config.json', 'r') as f:
+with open('config.json', 'r') as f:
     config = json.load(f)
 
 class CompletePipelineStack(Stack):
@@ -27,7 +27,7 @@ class CompletePipelineStack(Stack):
             self, "BlsDataFetcher",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="bls_sync.handler",
-            code=_lambda.Code.from_asset("../../lambda/bls_sync"),
+            code=_lambda.Code.from_asset("lambda/bls_sync"),
             timeout=cdk.Duration.minutes(15)
         )
 
@@ -36,7 +36,7 @@ class CompletePipelineStack(Stack):
             self, "PopulationDataFetcher",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="population.handler",
-            code=_lambda.Code.from_asset("../../lambda/population_sync"),
+            code=_lambda.Code.from_asset("lambda/population_sync"),
             timeout=cdk.Duration.minutes(5)
         )
 
@@ -46,15 +46,19 @@ class CompletePipelineStack(Stack):
             schedule=events.Schedule.cron(minute='0', hour='16')
         )
 
-        daily_schedule.add_target(targets.LambdaFunction(bls_lambda, event={
+        daily_schedule.add_target(targets.LambdaFunction(
+            bls_lambda,
+            event=events.RuleTargetInput.from_object({
             "BUCKET_NAME": config['bucket_name'],
             "CONFIG": config.get("bls")
-        }))
+        })))
 
-        daily_schedule.add_target(targets.LambdaFunction(pop_lambda, event={
+        daily_schedule.add_target(targets.LambdaFunction(
+            pop_lambda,
+            event=events.RuleTargetInput.from_object({
             "BUCKET_NAME": config['bucket_name'],
             "CONFIG": config.get("population"),
-        }))
+        })))
 
         # Part 3: Analytics pipeline
         analytics_queue = sqs.Queue(self, "AnalyticsQueue")
@@ -62,7 +66,7 @@ class CompletePipelineStack(Stack):
             self, "AnalyticsProcessor",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="analytics.handler",
-            code=_lambda.Code.from_asset("../../lambda/analytics"),
+            code=_lambda.Code.from_asset("lambda/analytics"),
             timeout=cdk.Duration.minutes(5),
             environment={
                 "BLS_BUCKET": bucket_name,

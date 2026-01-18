@@ -1,5 +1,5 @@
 import aws_cdk as cdk
-from aws_cdk import stacks, pipelines
+from aws_cdk import pipelines
 from constructs import Construct
 from stage import MyLambdaStage
 
