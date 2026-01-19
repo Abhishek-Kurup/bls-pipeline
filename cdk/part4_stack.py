@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_sqs as sqs,
+    aws_lambda_event_sources as event_sources,
     aws_iam as iam,
     aws_s3_notifications as notifications,
     aws_s3 as s3
@@ -85,7 +86,7 @@ class CompletePipelineStack(Stack):
         )
 
         # SQS → Analytics Lambda
-        analytics_lambda.add_event_source(sqs.SqsEventSource(analytics_queue))
+        analytics_lambda.add_event_source(event_sources.SqsEventSource(analytics_queue))
 
         # S3 permissions
         for fn in [bls_lambda, pop_lambda, analytics_lambda]:
